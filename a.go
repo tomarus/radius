@@ -80,7 +80,7 @@ type Packet struct {
 	Auth []byte
 	Pairs []Pair
 	debug bool
-	secret string
+	Secret string
 	inauth []byte
 }
 
@@ -108,7 +108,7 @@ func (m *Packet) fillPass(pass string) (buf []byte) {
 	vec := m.Auth
 	for i := 0; i < padLen; i += authLen {
 		h := md5.New()
-		io.WriteString(h, m.secret)
+		io.WriteString(h, m.Secret)
 		h.Write(vec)
 		buf = append(buf, h.Sum(nil)...)
 		for j := i; j < i+authLen; j++ {
@@ -132,6 +132,9 @@ func (m *Packet) encodeVendor(w io.Writer, p Pair) {
 func (m *Packet) Encode() (ret []byte, err error) {
 
 	data := new(bytes.Buffer)
+	var passwd string
+	var padPos int // position of password blob in packet
+	var padLen int // length of password blob rounded to 16 bytes
 	for _, p := range m.Pairs {
 		switch p.Type {
 		case ServiceType, FramedProtocol,
@@ -144,6 +147,13 @@ func (m *Packet) Encode() (ret []byte, err error) {
 
 		case UserName, CalledStationId, ReplyMessage, NasIdentifier:
 			p.Bytes = []byte(p.Str)
+
+		case UserPass:
+			passwd = p.Str // keep for later
+			padLen = (len(passwd) + 15) & (^15)
+			padPos = data.Len()
+			b := make([]byte, padLen)
+			p.Bytes = b
 
 		case FramedIP:
 			b := make([]byte, 4)
@@ -175,17 +185,20 @@ func (m *Packet) Encode() (ret []byte, err error) {
 	w.WriteByte(byte(m.Id))
 	binary.Write(w, binary.BigEndian, uint16(data.Len()+20))
 	w.Write(m.inauth)
+	padPos += w.Len()
 	w.Write(data.Bytes())
-	w.Write([]byte(m.secret))
+	w.Write([]byte(m.Secret))
 
 	h := md5.New()
 	h.Write(w.Bytes())
 	m.Auth = h.Sum(nil)
 
 	ret = w.Bytes()
-	ret = ret[:len(ret)-len(m.secret)]
+	ret = ret[:len(ret)-len(m.Secret)]
 	copy(ret[4:20], m.Auth)
 
+	padPos +=2 // 2 for Type
+	copy(ret[padPos:padPos+padLen], m.fillPass(passwd))
 	return
 }
 
@@ -295,10 +308,10 @@ func (m *Listener) handle(in *Packet, secret string, addr *net.UDPAddr) (out *Pa
 	out = new(Packet)
 	out.Id = in.Id
 	out.inauth = in.Auth
-	out.secret = secret
+	out.Secret = secret
 	out.Pairs = []Pair{}
 
-	in.secret = secret
+	in.Secret = secret
 
 	userip := ""
 	usermac := ""
@@ -566,7 +579,7 @@ func test_password() {
 	authLen := 16
 
 	secret := "123456"
-	pkt.secret = secret
+	pkt.Secret = secret
 	pass := "aaa"
 
 	passLen := len(pass)

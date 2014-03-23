@@ -140,7 +140,11 @@ func (m *Packet) Encode() (ret []byte, err error) {
 		case ServiceType, FramedProtocol,
 				 SessionTimeout,
 				 NasPort, NasPortTYpe, NasPortId,
-				 NasIpAddr:
+				 NasIpAddr,
+				 AcctStatusType, AcctSessionTime,
+				 AcctInputPackets, AcctOutputPackets,
+				 AcctInputOctets, AcctOutputOctets,
+				 AcctInputGigawords, AcctOutputGigawords:
 			b := new(bytes.Buffer)
 			binary.Write(b, binary.BigEndian, p.Uint32)
 			p.Bytes = b.Bytes()

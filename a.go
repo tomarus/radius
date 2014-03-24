@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"io"
-	"os"
 	"io/ioutil"
 	"encoding/binary"
 	"bytes"
@@ -252,11 +251,12 @@ func (m *Packet) Decode(in []byte) (err error) {
 
 		plen := int(l8)-2
 		if plen <= 0 {
-			err = fmt.Errorf("pair len < 0")
-			if f, err2 := os.Create("/tmp/radius-err-pkt"); err2 != nil {
-				f.Write(in)
-				f.Close()
-			}
+			err = fmt.Errorf("No pairs received or radius server down.")
+			//if f, err2 := os.Create("/tmp/radius-err-pkt"); err2 != nil {
+			//	f.Write(in)
+			//	f.Close()
+			//}
+			return
 		}
 
 		p.Bytes = make([]byte, plen)

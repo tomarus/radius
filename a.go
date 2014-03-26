@@ -479,13 +479,16 @@ func Disconnect(user, nasip string) (err error) {
 	pkt.Pairs = []Pair{
 		{Type: UserName, Str: user},
 	}
-	var b []byte
-	b, err = pkt.Encode()
+
+	_, err = SendPacket(socket, pkt)
+	return
+}
+
+func SendPacket(socket *net.UDPConn, pkt *Packet) (response *Packet, err error) {
+	b, err := pkt.Encode()
 	if err != nil {
 		return
 	}
-
-	//log.Printf("%x\n", b)
 
 	_, err = socket.Write(b)
 	if err != nil {
@@ -501,8 +504,8 @@ func Disconnect(user, nasip string) (err error) {
 	}
 	rb = rb[:read]
 
-	pkt2 := &Packet{}
-	err = pkt2.Decode(rb)
+	response = &Packet{}
+	err = response.Decode(rb)
 	if err != nil {
 		return
 	}

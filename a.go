@@ -13,22 +13,23 @@ import (
 )
 
 const (
-	UserName       = PairType(1)
-	UserPass       = PairType(2)
-	ChapPass       = PairType(3)
-	ChapChallenge  = PairType(60)
-	NasIpAddr      = PairType(4)
-	NasPort        = PairType(5)
-	ServiceType    = PairType(6)
-	FramedProtocol = PairType(7)
-	FramedIP       = PairType(8)
-	NasPortTYpe    = PairType(61)
-	NasPortId      = PairType(87)
-	VendorSpecific = PairType(26)
-	SessionTimeout = PairType(27)
-	NasIdentifier  = PairType(32)
-
-	ReplyMessage = PairType(18)
+	UserName           = PairType(1)
+	UserPass           = PairType(2)
+	ChapPass           = PairType(3)
+	ChapChallenge      = PairType(60)
+	NasIpAddr          = PairType(4)
+	NasPort            = PairType(5)
+	ServiceType        = PairType(6)
+	FramedProtocol     = PairType(7)
+	FramedIP           = PairType(8)
+	FilterId           = PairType(11)
+	NasPortType        = PairType(61)
+	NasPortId          = PairType(87)
+	VendorSpecific     = PairType(26)
+	SessionTimeout     = PairType(27)
+	NasIdentifier      = PairType(32)
+	ConfigurationToken = PairType(78)
+	ReplyMessage       = PairType(18)
 
 	AcctStart   = uint32(1)
 	AcctStop    = uint32(2)
@@ -137,7 +138,7 @@ func (m *Packet) Encode() (ret []byte, err error) {
 		switch p.Type {
 		case ServiceType, FramedProtocol,
 			SessionTimeout,
-			NasPort, NasPortTYpe, NasPortId,
+			NasPort, NasPortType, NasPortId,
 			NasIpAddr,
 			AcctStatusType, AcctSessionTime,
 			AcctInputPackets, AcctOutputPackets,
@@ -147,7 +148,8 @@ func (m *Packet) Encode() (ret []byte, err error) {
 			binary.Write(b, binary.BigEndian, p.Uint32)
 			p.Bytes = b.Bytes()
 
-		case UserName, CalledStationId, ReplyMessage, NasIdentifier:
+		case UserName, CalledStationId, ReplyMessage, NasIdentifier,
+			FilterId, ConfigurationToken:
 			p.Bytes = []byte(p.Str)
 
 		case UserPass:
@@ -273,7 +275,7 @@ func (m *Packet) Decode(in []byte) (err error) {
 		switch p.Type {
 
 		case ServiceType, FramedProtocol,
-			NasPort, NasPortTYpe,
+			NasPort, NasPortType,
 			AcctStatusType,
 			AcctSessionTime,
 			AcctInputPackets, AcctOutputPackets,
@@ -293,7 +295,7 @@ func (m *Packet) Decode(in []byte) (err error) {
 
 		case UserName, NasPortId, NasIdentifier,
 			CalledStationId, CallingStationId,
-			ReplyMessage:
+			ReplyMessage, FilterId, ConfigurationToken:
 			p.Str = string(p.Bytes)
 
 		}

@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"time"
 )
 
 var host = flag.String("host", "localhost", "Hostname of radius server.")
@@ -60,7 +59,26 @@ func RadiusAuth(rc *net.UDPConn) {
 	p.Pairs = append(p.Pairs, radius.Pair{Type: radius.UserName, Str: *user})
 	p.Pairs = append(p.Pairs, radius.Pair{Type: radius.UserPass, Str: *pass})
 
-	RadiusSendPacket(rc, p)
+	response, err := radius.SendPacket(rc, p)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if response.Code == radius.AccessAccept {
+		log.Printf("Received Access-Accept")
+		for _, p := range response.Pairs {
+			if p.Type == 78 {
+				log.Printf("Received Access-Accept Configuration-Token %s", p.Bytes)
+			}
+			if p.Type == radius.ReplyMessage {
+				log.Printf("Received Access-Accept Reply-Message %s", p.Str)
+			}
+		}
+	} else if response.Code == radius.AccessReject {
+		log.Printf("Received Access-Reject")
+	} else {
+		log.Printf("Received unknown Access-Request packet %d", response.Code)
+	}
 }
 
 func RadiusAcct(rc *net.UDPConn) {
@@ -83,52 +101,14 @@ func RadiusAcct(rc *net.UDPConn) {
 	p.Pairs = append(p.Pairs, radius.Pair{Type: radius.AcctOutputGigawords, Uint32: 1})
 	p.Pairs = append(p.Pairs, radius.Pair{Type: radius.AcctOutputPackets, Uint32: 54321})
 
-	RadiusSendPacket(rc, p)
-}
-
-func RadiusSendPacket(rc *net.UDPConn, p *radius.Packet) {
-	pkt, err := p.Encode()
+	response, err := radius.SendPacket(rc, p)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = rc.Write(pkt)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var buf [2048]byte
-	var rcv = make(chan int)
-	go func(out chan int) {
-		n, _ := rc.Read(buf[0:])
-		out <- n
-	}(rcv)
-	select {
-	case <-rcv:
-	case <-time.After(time.Second * 5):
-		log.Fatal("Radius server timeout after 5 seconds.")
-	}
-
-	response := new(radius.Packet)
-	err = response.Decode(buf[:])
-	if err != nil {
-		log.Fatal(err)
-	}
-	//log.Printf("Received Radius Packet: %#v", response)
-
-	if response.Code == radius.AccessAccept {
-		log.Printf("Received Access-Accept")
-		for _, p := range response.Pairs {
-			if p.Type == 78 {
-				log.Printf("Received Access-Accept Configuration-Token %s", p.Bytes)
-			}
-			if p.Type == radius.ReplyMessage {
-				log.Printf("Received Access-Accept Reply-Message %s", p.Str)
-			}
-		}
-	} else if response.Code == radius.AccessReject {
-		log.Printf("Received Access-Reject")
-	} else if response.Code == radius.AcctResponse {
+	if response.Code == radius.AcctResponse {
 		log.Printf("Received Acct-Response")
+	} else {
+		log.Printf("Received unknown Acct-Response packet %d", response.Code)
 	}
 }

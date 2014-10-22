@@ -22,6 +22,7 @@ const (
 	ServiceType        = PairType(6)
 	FramedProtocol     = PairType(7)
 	FramedIP           = PairType(8)
+	FramedIPv6         = PairType(168)
 	FilterId           = PairType(11)
 	NasPortType        = PairType(61)
 	NasPortId          = PairType(87)
@@ -159,6 +160,10 @@ func (m *Packet) Encode() (ret []byte, err error) {
 			b := make([]byte, padLen)
 			p.Bytes = b
 
+		case FramedIPv6:
+			ip := net.ParseIP(p.Str)
+			p.Bytes = ip
+
 		case FramedIP:
 			b := make([]byte, 4)
 			fmt.Sscanf(p.Str, "%d.%d.%d.%d", &b[3], &b[2], &b[1], &b[0])
@@ -293,6 +298,17 @@ func (m *Packet) Decode(in []byte) (err error) {
 			}
 			p.Str = fmt.Sprintf("%d.%d.%d.%d", p.Bytes[0], p.Bytes[1], p.Bytes[2], p.Bytes[3])
 
+		case FramedIPv6:
+			if len(p.Bytes) != 16 {
+				err = fmt.Errorf("ip6 addr not 16 bytes")
+				return
+			}
+			p.Str = fmt.Sprintf("%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x", 
+				p.Bytes[0], p.Bytes[1], p.Bytes[2], p.Bytes[3],
+				p.Bytes[4], p.Bytes[5], p.Bytes[6], p.Bytes[7],
+				p.Bytes[8], p.Bytes[9], p.Bytes[10], p.Bytes[11],
+				p.Bytes[12], p.Bytes[13], p.Bytes[14], p.Bytes[15])
+
 		case UserName, NasPortId, NasIdentifier,
 			CalledStationId, CallingStationId,
 			ReplyMessage, FilterId, ConfigurationToken:
@@ -328,7 +344,7 @@ func (m *Listener) handle(in *Packet, secret string, addr *net.UDPAddr) (out *Pa
 
 	for _, p := range in.Pairs {
 		switch p.Type {
-		case FramedIP:
+		case FramedIP, FramedIPv6:
 			userip = p.Str
 		case CallingStationId:
 			usermac = p.Str
